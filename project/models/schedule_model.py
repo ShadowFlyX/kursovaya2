@@ -31,32 +31,37 @@ class ScheduleModel(Base):
     OverUnderLine = Column(String(10))
     Faculty = Column(String(150))
 
-    def __init__(self, session: session):
-        self.session = session
-
-    def get_groups(self, faculty: str) -> list[str | None]:
+    def get_faculty_groups(self, session: session, faculty: str) -> list[tuple[str, int]]:
         """Получить список всех групп из базы данных."""
         try:
-            # Выбираем уникальные значения из поля 'SGroup'
-            querry = self.session.query(distinct(ScheduleModel.SGroup), ScheduleModel.Faculty, ScheduleModel.Kurs)\
+            query = session.query(distinct(ScheduleModel.SGroup), ScheduleModel.Kurs)\
                 .filter(ScheduleModel.Faculty == faculty)\
-                .order_by(ScheduleModel.Kurs, ScheduleModel.SGroup)
-            groups = querry.all()
-            return [group[0] for group in groups]  # Преобразуем результат в список строк
+                .order_by(ScheduleModel.Kurs, ScheduleModel.SGroup)     
+            groups = query.all()
+            return list(groups)                                        
         except Exception as e:
-            # Обработка ошибок, если что-то пошло не так
-            print("Ошибка при получении списка групп:", e)
+            print("Ошибка при получении списка групп:", e)              
             return []
 
-    def get_faculties(self) -> list[str | None]:
+    def get_faculties(self, session: session) -> list[tuple[str]]:
         """Получить список всех факультетов из базы данных."""
         try:
-            # Выбираем уникальные значения из поля 'Faculty'
-            querry = self.session.query(distinct(ScheduleModel.Faculty))\
-            .order_by(ScheduleModel.Faculty)
-            groups = querry.all()
-            return [group[0] for group in groups]  # Преобразуем результат в список строк
+            query = session.query(distinct(ScheduleModel.Faculty))\
+            .order_by(ScheduleModel.Faculty)                           
+            faculties = query.all()
+            return [faculty[0] for faculty in faculties]              
         except Exception as e:
-            # Обработка ошибок, если что-то пошло не так
-            print("Ошибка при получении списка факультетов:", e)
+            print("Ошибка при получении списка факультетов:", e)       
+            return []
+        
+    def get_schedule_for_week(self, session: session, group: str, semester: int) -> list:
+        """Получить список расписаний группы на неделю из базы данных."""
+        try:
+            query = session.query(ScheduleModel.DayOfWeek, ScheduleModel.TimeBeg, ScheduleModel.ClassRoom, ScheduleModel.DisciplineShort, ScheduleModel.Teacher, ScheduleModel.Kurs, ScheduleModel.OverUnderLine, ScheduleModel.SubGroup, ScheduleModel.WeekPeriod, ScheduleModel.SGroup, ScheduleModel.Semestr)\
+            .filter(ScheduleModel.SGroup == group and ScheduleModel.Semestr == semester)\
+            .order_by(ScheduleModel.DayOfWeek, ScheduleModel.TimeBeg)
+            groups = query.all()
+            return list(groups)                                        
+        except Exception as e:
+            print("Ошибка при получении списка групп:", e)              
             return []
