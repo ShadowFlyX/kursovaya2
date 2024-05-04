@@ -57,11 +57,24 @@ class ScheduleModel(Base):
     def get_schedule_for_week(self, session: session, group: str, semester: int) -> list:
         """Получить список расписаний группы на неделю из базы данных."""
         try:
-            query = session.query(ScheduleModel.DayOfWeek, ScheduleModel.TimeBeg, ScheduleModel.ClassRoom, ScheduleModel.DisciplineShort, ScheduleModel.Teacher, ScheduleModel.Kurs, ScheduleModel.OverUnderLine, ScheduleModel.SubGroup, ScheduleModel.WeekPeriod, ScheduleModel.SGroup, ScheduleModel.Semestr)\
+            query = session.query(ScheduleModel.DayOfWeek, ScheduleModel.TimeBeg, ScheduleModel.ClassRoom, ScheduleModel.Discipline, ScheduleModel.Teacher, ScheduleModel.Kurs, ScheduleModel.OverUnderLine, ScheduleModel.SubGroup, ScheduleModel.WeekPeriod, ScheduleModel.SGroup, ScheduleModel.Semestr)\
             .filter(ScheduleModel.SGroup == group and ScheduleModel.Semestr == semester)\
             .order_by(ScheduleModel.DayOfWeek, ScheduleModel.TimeBeg)
             groups = query.all()
             return list(groups)                                        
         except Exception as e:
+            print("Ошибка при получении списка расписания групп:", e)              
+            return []
+        
+    def get_study_time(self,session: session, faculty: str, semester: int) -> list:
+        '''Получить все часы начала занятий'''
+        try:
+            query = session.query(distinct(ScheduleModel.TimeBeg), ScheduleModel.Semestr, ScheduleModel.Faculty)\
+            .filter(ScheduleModel.Faculty == faculty and ScheduleModel.Semestr == semester)\
+            .order_by(ScheduleModel.TimeBeg)
+            data = query.all()
+            return [d[0] for d in list(data)]                                       
+        except Exception as e:
             print("Ошибка при получении списка групп:", e)              
             return []
+        
