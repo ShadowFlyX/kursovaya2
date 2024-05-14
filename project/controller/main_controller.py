@@ -1,12 +1,6 @@
 import sys
 import os
 
-import PySide6.QtCore
-import PySide6.QtWidgets
-
-project_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../"))   # Получаем путь к каталогу проекта
-
-sys.path.append(project_dir)                                            # Добавляем каталог проекта в PYTHONPATH
 import PySide6
 from PySide6.QtWidgets import QApplication, QMainWindow
 from view.main_view import Ui_MainWindow
@@ -14,11 +8,7 @@ import sqlalchemy as db
 from sqlalchemy.orm import sessionmaker
 from models.schedule_model import ScheduleModel
 import openpyxl
-from openpyxl.styles import (
-                        PatternFill, Border, Side, 
-                        Alignment, Font, GradientFill
-                        )
-
+from openpyxl.styles import PatternFill, Border, Side, Alignment, Font, GradientFill
 
 def run_application():
     app = QApplication(sys.argv)
@@ -26,21 +16,18 @@ def run_application():
     window.show()
     sys.exit(app.exec())
 
-
-
 SERVER = 'DESKTOP-HU5SQ7D\SQLEXPRESS'
 DATABASE = 'TimeTable'
 
 conntection_string = f"mssql+pyodbc://{SERVER}/{DATABASE}?trusted_connection=yes&trustservercertificate=yes&driver=ODBC+Driver+18+for+SQL+Server"
-engine = db.create_engine(conntection_string)                          # Создание ядра подключения для дальнейшей работы с ним  
+engine = db.create_engine(conntection_string)
 
-dirname = os.path.dirname(PySide6.__file__)                            # TODO: дописать коментарий здесь с описанием происходящего
+dirname = os.path.dirname(PySide6.__file__)
 
 plugin_path = os.path.join(dirname, "plugins", "platforms")
 os.environ['QT_QPA_PLATFORM_PLUGIN_PATH'] = plugin_path
 
-
-Session = sessionmaker(bind=engine)                                    # Создаем сессию, чтобы
+Session = sessionmaker(bind=engine)
 
 class Controller:
     def __init__(self, view: Ui_MainWindow):
@@ -58,255 +45,135 @@ class Controller:
         return f"{data.discipline}\n{data.teacher}\n{data.classroom}"
 
     def generate_file(self):
-        
-        #------------------------------------------------------------------------------------------------------------------
-        faculty = self.view.comboBox.currentText() 
-        
+        faculty = self.view.comboBox.currentText()
+
         if faculty is None:
-            error = PySide6.QtWidgets.QErrorMessage()
-            error.showMessage("Выберите факультет!")
-            error.setWindowTitle("Error!")
-            error.exec()
+            self.show_error_message("Выберите факультет!")
             return
-        #------------------------------------------------------------------------------------------------------------------
-        
+
         faculty_groups = self.model.get_faculty_groups(self.session, faculty)
         semester = int(self.view.comboBox1.currentText())
-        
-        #------------------------------------------------------------------------------------------------------------------
-        
+
         wb = openpyxl.Workbook()
         ws = wb.active
-        
-        #------------------------------------------------------------------------------------------------------------------
-        
-        ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=len(faculty_groups) + 2)
-        cell = ws.cell(row=1, column=1)
-        cell.value = faculty
-        cell.alignment = Alignment(horizontal="center", vertical="center")
-        cell.font = Font("Times New Roman", 20, bold=True)
-        #------------------------------------------------------------------------------------------------------------------
-  
+
+        self.merge_and_set_value(ws, 1, 1, 1, len(faculty_groups) + 2, faculty, font_size=20, bold=True)
+
         study_time = self.model.get_study_time(self.session, faculty, semester)
-        
+
         week_days = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"]
         count_lessons = len(study_time)
         COUNT_STUDY_DAYS = 6
 
-        for day in range(COUNT_STUDY_DAYS):                     # 6 - кол-во учебных дней в неделе
+        for day in range(COUNT_STUDY_DAYS):
             row_start = day * count_lessons * 2 + 3
-            row_end = row_start + count_lessons * 2 - 1 
-            
-            ws.merge_cells(start_row=row_start, start_column=1, end_row=row_end, end_column=1)
-            
-            cell = ws.cell(row=row_start, column=1)
-            cell.value = week_days[day]
-            
-            cell.alignment = Alignment(vertical="center", horizontal="center", text_rotation=90)
-            cell.font = Font("Times New Roman", 14)
-            
+            row_end = row_start + count_lessons * 2 - 1
+
+            self.merge_and_set_value(ws, row_start, 1, row_end, 1, week_days[day],
+                                     vertical_align="center", horizontal_align="center", text_rotation=90, font_size=14)
+
             for row, time in enumerate(study_time):
-                time_start_row = row_start + row*2
-                ws.merge_cells(start_row=time_start_row, start_column=2, end_row=time_start_row+1, end_column=2)
-                cell = ws.cell(row=row_start+row*2, column=2)
-                cell.value = time.strftime("%#H:%M")
-                cell.alignment = Alignment(vertical="center", text_rotation=90)
-                cell.font = Font("Times New Roman", 10, italic=True)
-        
-        #------------------------------------------------------------------------------------------------------------------
-        
+                time_start_row = row_start + row * 2
+                self.merge_and_set_value(ws, time_start_row, 2, time_start_row + 1, 2, time.strftime("%#H:%M"),
+                                         vertical_align="center", font_size=10, italic=True)
+
         column = 3
         for groups in faculty_groups:
             group, _ = groups
-            ws.merge_cells(start_row=2, start_column=column, end_row=2, end_column=column+1) 
-            
-            cell = ws.cell(row = 2, column = column)
-
-            cell.value = group
-            
-            cell.alignment = Alignment(horizontal="center", vertical="center")
-            cell.font = Font("Times New Roman", 18, bold=True)
+            self.merge_and_set_value(ws, 2, column, 2, column + 1, group, vertical_align="center", horizontal_align="center", font_size=18, bold=True)
             ws.column_dimensions[openpyxl.utils.cell.get_column_letter(column)].width = 15
-            ws.column_dimensions[openpyxl.utils.cell.get_column_letter(column+1)].width = 15
-            
+            ws.column_dimensions[openpyxl.utils.cell.get_column_letter(column + 1)].width = 15
+
             week_schedule = self.model.get_schedule_for_week(self.session, group, semester)
-            
+
             for row in range(100):
                 ws.row_dimensions[row].height = 40
-            
 
             week_schedule_dict = {}
-
-            for day in range(1, COUNT_STUDY_DAYS+1):
+            for day in range(1, COUNT_STUDY_DAYS + 1):
                 week_schedule_dict.setdefault(day, {})
                 for time in study_time:
                     week_schedule_dict[day].setdefault(time, [])
-
 
             for data in week_schedule:
                 week_schedule_dict[data.dayofweek][data.timebeg].append(data)
 
             row = 3
             for day in week_schedule_dict:
-                for time, data in week_schedule_dict[day].items():  
-                    if data:   
-                        # Если есть подгруппа     
-                        length = len(data)
-                        if data[0].overunderline is not None:
-                            if data[0].overunderline.lower() == "над чертой":
-                                if data[0].subgroup:
-                                    if data[0].subgroup == "1":
-                                        ws.cell(row=row, column=column).value = self.get_lesson_string(data[0])
-                                        if length >= 2:
-                                            if data[1].overunderline is None:
-                                                ws.merge_cells(start_row=row, start_column=column+1, end_row=row+1, end_column=column+1)
-                                                ws.cell(row=row, column=column+1).value = self.get_lesson_string(data[1])
-                                                if length == 3:
-                                                    ws.cell(row=row+1, column=column).value = self.get_lesson_string(data[1])
-                                            elif data[1].overunderline.lower() == "над чертой":
-                                                ws.cell(row=row, column=column+1).value = self.get_lesson_string(data[1])
-                                                if length == 3:
-                                                    if data[2].subgroup is None:
-                                                        ws.merge_cells(start_row=row+1, start_column=column, end_row=row+1, end_column=column+1)
-                                                        ws.cell(row=row+1, column=column).value = self.get_lesson_string(data[2])
-                                                    elif data[2].subgroup == "1":
-                                                        ws.cell(row=row+1, column=column).value = self.get_lesson_string(data[2])
-                                                    elif data[2].subgroup == "2":
-                                                        ws.cell(row=row+1, column=column+1).value = self.get_lesson_string(data[2])
-                                                elif length == 4:
-                                                    ws.cell(row=row+1, column=column).value = self.get_lesson_string(data[2])  
-                                                    ws.cell(row=row+1, column=column+1).value = self.get_lesson_string(data[3])
-                                            elif data[1].overunderline.lower() == "под чертой":
-                                                if length == 2:
-                                                    if data[1].subgroup is None:
-                                                        ws.merge_cells(start_row=row+1, start_column=column, end_row=row+1, end_column=column+1)
-                                                        ws.cell(row=row+1, column=column).value = self.get_lesson_string(data[1])
-                                                    elif data[1].subgroup == "1":
-                                                        ws.cell(row=row+1, column=column).value = self.get_lesson_string(data[1])
-                                                    elif data[1].subgroup == "2":
-                                                        ws.cell(row=row+1, column=column+1).value = self.get_lesson_string(data[1])
-                                                elif length == 3:
-                                                    ws.cell(row=row+1, column=column).value = self.get_lesson_string(data[1])  
-                                                    ws.cell(row=row+1, column=column+1).value = self.get_lesson_string(data[2])
-                                    if data[0].subgroup == "2":
-                                        ws.cell(row=row, column=column+1).value = self.get_lesson_string(data[0])
-                                        if length == 2:
-                                            if data[1].subgroup is None:
-                                                ws.merge_cells(start_row=row+1, start_column=column, end_row=row+1, end_column=column+1)
-                                                ws.cell(row=row+1, column=column).value = self.get_lesson_string(data[1])
-                                            elif data[1].subgroup == "1":
-                                                ws.cell(row=row+1, column=column).value = self.get_lesson_string(data[1])
-                                            elif data[1].subgroup == "2":
-                                                ws.cell(row=row+1, column=column+1).value = self.get_lesson_string(data[1])
-                                        elif length == 3:
-                                            ws.cell(row=row+1, column=column).value = self.get_lesson_string(data[1])  
-                                            ws.cell(row=row+1, column=column+1).value = self.get_lesson_string(data[2])
-                                    if data[0].subgroup == "3":
-                                        ws.cell(row=row, column=column+1).value = self.get_lesson_string(data[0])
-                                        if length == 2:
-                                            if data[1].subgroup is None:
-                                                ws.merge_cells(start_row=row+1, start_column=column, end_row=row+1, end_column=column+1)
-                                                ws.cell(row=row+1, column=column).value = self.get_lesson_string(data[1])
-                                            elif data[1].subgroup == "1":
-                                                ws.cell(row=row+1, column=column).value = self.get_lesson_string(data[1])
-                                            elif data[1].subgroup == "2":
-                                                ws.cell(row=row+1, column=column+1).value = self.get_lesson_string(data[1])
-                                        elif length == 3:
-                                            ws.cell(row=row+1, column=column).value = self.get_lesson_string(data[1])  
-                                            ws.cell(row=row+1, column=column+1).value = self.get_lesson_string(data[2])
-                                else:
-                                    ws.merge_cells(start_row=row, start_column=column, end_row=row, end_column=column+1)
-                                    ws.cell(row=row, column=column).value = self.get_lesson_string(data[0])
-                                    if length == 2:
-                                        if data[1].subgroup is None:
-                                            ws.merge_cells(start_row=row+1, start_column=column, end_row=row+1, end_column=column+1)
-                                            ws.cell(row=row+1, column=column).value = self.get_lesson_string(data[1])
-                                        elif data[1].subgroup == "1":
-                                            ws.cell(row=row+1, column=column).value = self.get_lesson_string(data[1])
-                                        elif data[1].subgroup == "2":
-                                            ws.cell(row=row+1, column=column+1).value = self.get_lesson_string(data[1])
-                                    elif length == 3:
-                                        ws.cell(row=row+1, column=column).value = self.get_lesson_string(data[1])  
-                                        ws.cell(row=row+1, column=column+1).value = self.get_lesson_string(data[2])
-                            elif data[0].overunderline.lower() == "под чертой":
-                                if length == 1:
-                                    if data[0].subgroup is None:
-                                        ws.merge_cells(start_row=row+1, start_column=column, end_row=row+1, end_column=column+1)
-                                        ws.cell(row=row+1, column=column).value = self.get_lesson_string(data[0])
-                                    elif data[0].subgroup == "1":
-                                        ws.cell(row=row+1, column=column).value = self.get_lesson_string(data[0])
-                                    elif data[0].subgroup == "2":
-                                        ws.cell(row=row+1, column=column+1).value = self.get_lesson_string(data[0])
-                                    elif data[0].subgroup == "3":
-                                        # Чисто для физики ©Миша
-                                        ws.cell(row=row+1, column=column).value = self.get_lesson_string(data[0])
-                                elif length == 2:
-                                    ws.cell(row=row+1, column=column).value = self.get_lesson_string(data[0])  
-                                    ws.cell(row=row+1, column=column+1).value = self.get_lesson_string(data[1])
-                        else:
-                            # Если есть подгруппа
-                            if data[0].subgroup is not None:
-                                if data[0].subgroup == "1":
-                                    ws.merge_cells(start_row=row, start_column=column, end_row=row+1, end_column=column)
-                                    ws.cell(row=row, column=column).value = self.get_lesson_string(data[0]) 
-                                    if length == 3:
-                                        ws.cell(row=row, column=column+1).value = self.get_lesson_string(data[1]) 
-                                        ws.cell(row=row+1, column=column+1).value = self.get_lesson_string(data[2]) 
-                                    elif length == 2:
-                                        if data[1].overunderline is not None:
-                                            if data[1].overunderline.lower() == "над чертой":
-                                                ws.cell(row=row, column=column+1).value = self.get_lesson_string(data[1]) 
-                                            elif data[1].overunderline.lower() == "под чертой":
-                                                ws.cell(row=row+1, column=column+1).value = self.get_lesson_string(data[1]) 
-                                        else:
-                                            ws.merge_cells(start_row=row, start_column=column+1, end_row=row+1, end_column=column+1)
-                                            ws.cell(row=row, column=column+1).value = self.get_lesson_string(data[1]) 
-                                elif data[0].subgroup == "2":
-                                    ws.merge_cells(start_row=row, start_column=column+1, end_row=row+1, end_column=column+1)
-                                    ws.cell(row=row, column=column+1).value = self.get_lesson_string(data[0]) 
-                                    if length == 2:
-                                        ws.cell(row=row+1, column=column).value = self.get_lesson_string(data[1])
-                            else:
-                                ws.merge_cells(start_row=row, start_column=column, end_row=row+1, end_column=column+1)
-                                cell = ws.cell(row=row, column=column)
-                                ws.cell(row=row, column=column).value = self.get_lesson_string(data[0]) 
+                for time, data in week_schedule_dict[day].items():
+                    if data:
+                        self.process_schedule_data(ws, row, column, data)
                     else:
-                        ws.merge_cells(start_row=row, start_column=column, end_row=row+1, end_column=column+1)
+                        ws.merge_cells(start_row=row, start_column=column, end_row=row + 1, end_column=column + 1)
                     row += 2
-            column += 2  
-            '''
-            cell.value = cell_data
-            cell.font = Font("Times New Roman", 10)
-            cell.alignment = Alignment(horizontal="center", vertical="center")'''  
-        #------------------------------------------------------------------------------------------------------------------
+            column += 2
 
         wb.save("additional/test.xlsx")
 
+    def process_schedule_data(self, ws, row, column, data):
+        length = len(data)
+        if data[0].overunderline is not None:
+            if data[0].overunderline.lower() == "над чертой":
+                self.process_above_line(ws, row, column, data, length)
+            elif data[0].overunderline.lower() == "под чертой":
+                self.process_below_line(ws, row, column, data, length)
+        else:
+            self.process_no_line(ws, row, column, data, length)
 
-class Lessons:
+    def process_above_line(self, ws, row, column, data, length):
+        if data[0].subgroup:
+            if data[0].subgroup == "1":
+                self.set_subgroup(ws, row, column, data, length, 1)
+            if data[0].subgroup == "2":
+                self.set_subgroup(ws, row, column, data, length, 2)
+        else:
+            self.merge_and_set_value(ws, row, column, row, column + 1, self.get_lesson_string(data[0]))
+            self.set_subgroup(ws, row, column, data, length, None)
 
-    def __init__(self, arr: list):
-        self._size = len(arr)
-        self._ul = None
-        self._ur = None
-        self._dl = None
-        self._dr = None
+    def process_below_line(self, ws, row, column, data, length):
+        self.set_subgroup(ws, row + 1, column, data, length, None)
 
-        self._lessons = self.process_array(arr)
+    def process_no_line(self, ws, row, column, data, length):
+        if data[0].subgroup:
+            if data[0].subgroup == "1":
+                self.merge_and_set_value(ws, row, column, row + 1, column, self.get_lesson_string(data[0]))
+                self.set_subgroup(ws, row, column + 1, data, length, None)
+            elif data[0].subgroup == "2":
+                self.merge_and_set_value(ws, row, column + 1, row + 1, column + 1, self.get_lesson_string(data[0]))
+                self.set_subgroup(ws, row + 1, column, data, length, None)
+        else:
+            self.merge_and_set_value(ws, row, column, row + 1, column + 1, self.get_lesson_string(data[0]))
 
+    def set_subgroup(self, ws, row, column, data, length, subgroup):
+        for i in range(1, length):
+            if data[i].subgroup == subgroup or subgroup is None:
+                ws.cell(row=row, column=column).value = self.get_lesson_string(data[i])
 
-    def process_array(self, arr: list):
-        for index in range(self._size):
-            if arr[index].overunderline is not None:
-                if index+1 < self._size:
-                    if arr[index].overunderline.lower() == "под чертой":
-                        if arr[index+1].overunderline == arr[index].overunderline:
-                            self._ul = arr[index]
-                            self._ur = arr[index+1]
-                
-        
+    def show_error_message(self, message):
+        error = PySide6.QtWidgets.QErrorMessage()
+        error.showMessage(message)
+        error.setWindowTitle("Error!")
+        error.exec()
 
+    def format_cell(self, cell, vertical_align=None, horizontal_align=None, text_rotation=None, font_size=None, bold=False, italic=False):
+        if vertical_align:
+            cell.alignment = cell.alignment.copy(vertical=vertical_align)
+        if horizontal_align:
+            cell.alignment = cell.alignment.copy(horizontal=horizontal_align)
+        if text_rotation:
+            cell.alignment = cell.alignment.copy(textRotation=text_rotation)
+        if font_size:
+            cell.font = cell.font.copy(size=font_size)
+        if bold:
+            cell.font = cell.font.copy(bold=bold)
+        if italic:
+            cell.font = cell.font.copy(italic=italic)
 
+    def merge_and_set_value(self, ws, start_row, start_column, end_row, end_column, value, **kwargs):
+        ws.merge_cells(start_row=start_row, start_column=start_column, end_row=end_row, end_column=end_column)
+        cell = ws.cell(row=start_row, column=start_column)
+        cell.value = value
+        self.format_cell(cell, **kwargs)
 
 class MainWindow(QMainWindow):
     def __init__(self):
