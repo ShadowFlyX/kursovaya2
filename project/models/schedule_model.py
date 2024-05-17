@@ -35,14 +35,17 @@ class ScheduleModel(Base):
     OverUnderLine = Column(String(10))
     Faculty = Column(String(150))
 
-    def get_faculty_groups(self, session: session, faculty: str) -> list[tuple[str, int]]:
+    def get_faculty_groups(self, session: session, faculty: str) -> dict[int, str]:
         """Получить список всех групп из базы данных."""
         try:
             query = session.query(distinct(ScheduleModel.SGroup), ScheduleModel.Kurs)\
                 .filter(ScheduleModel.Faculty == faculty)\
                 .order_by(ScheduleModel.Kurs, ScheduleModel.SGroup)     
             groups = query.all()
-            return list(groups)                                        
+            data = {}
+            for group, kurs in groups:
+                data.setdefault(kurs, []).append(group)
+            return data
         except Exception as e:
             print("Ошибка при получении списка групп:", e)              
             return []
@@ -61,7 +64,7 @@ class ScheduleModel(Base):
     def get_schedule_for_week(self, session: session, group: str, semester: int) -> list:
         """Получить список расписаний группы на неделю из базы данных."""
         try:
-            query = session.query(ScheduleModel.DayOfWeek, ScheduleModel.TimeBeg, ScheduleModel.ClassRoom, ScheduleModel.Discipline, ScheduleModel.Teacher, ScheduleModel.Kurs, ScheduleModel.OverUnderLine, ScheduleModel.SubGroup, ScheduleModel.WeekPeriod, ScheduleModel.SGroup, ScheduleModel.Semestr)\
+            query = session.query(ScheduleModel.DayOfWeek, ScheduleModel.TimeBeg, ScheduleModel.ClassRoom, ScheduleModel.DisciplineShort, ScheduleModel.TeacherShort, ScheduleModel.Kurs, ScheduleModel.OverUnderLine, ScheduleModel.SubGroup, ScheduleModel.WeekPeriod, ScheduleModel.SGroup, ScheduleModel.Semestr)\
             .filter(ScheduleModel.SGroup == group, ScheduleModel.Semestr == semester)\
             .order_by(ScheduleModel.DayOfWeek, ScheduleModel.TimeBeg, ScheduleModel.OverUnderLine, ScheduleModel.SubGroup)
             groups = query.all()
@@ -84,7 +87,7 @@ class ScheduleModel(Base):
         
     def get_all_groups_schedule_by_course(self, session: session, faculty: str, semester: int, course: int) -> list:
         try:
-            query = session.query(ScheduleModel.DayOfWeek, ScheduleModel.TimeBeg, ScheduleModel.ClassRoom, ScheduleModel.Discipline, ScheduleModel.Teacher, ScheduleModel.Kurs, ScheduleModel.OverUnderLine, ScheduleModel.SubGroup, ScheduleModel.WeekPeriod, ScheduleModel.SGroup, ScheduleModel.Semestr)\
+            query = session.query(ScheduleModel.DayOfWeek, ScheduleModel.TimeBeg, ScheduleModel.ClassRoom, ScheduleModel.DisciplineShort, ScheduleModel.TeacherShort, ScheduleModel.Kurs, ScheduleModel.OverUnderLine, ScheduleModel.SubGroup, ScheduleModel.WeekPeriod, ScheduleModel.SGroup, ScheduleModel.Semestr)\
             .filter(ScheduleModel.Faculty == faculty, ScheduleModel.Semestr == semester, ScheduleModel.Kurs == course)\
             .order_by(ScheduleModel.SGroup, ScheduleModel.DayOfWeek, ScheduleModel.TimeBeg)
             groups = query.all()
