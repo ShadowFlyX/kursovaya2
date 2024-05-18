@@ -35,11 +35,12 @@ class ScheduleModel(Base):
     OverUnderLine = Column(String(10))
     Faculty = Column(String(150))
 
-    def get_faculty_groups(self, session: session, faculty: str) -> dict[int, str]:
+
+    def get_faculty_groups(self, session: session, faculty: str, semester: int) -> dict[int, str]:
         """Получить список всех групп из базы данных."""
         try:
             query = session.query(distinct(ScheduleModel.SGroup), ScheduleModel.Kurs)\
-                .filter(ScheduleModel.Faculty == faculty)\
+                .filter(ScheduleModel.Faculty == faculty, ScheduleModel.Semestr == semester)\
                 .order_by(ScheduleModel.Kurs, ScheduleModel.SGroup)     
             groups = query.all()
             data = {}
@@ -49,6 +50,7 @@ class ScheduleModel(Base):
         except Exception as e:
             print("Ошибка при получении списка групп:", e)              
             return []
+
 
     def get_faculties(self, session: session) -> list[tuple[str]]:
         """Получить список всех факультетов из базы данных."""
@@ -61,6 +63,7 @@ class ScheduleModel(Base):
             print("Ошибка при получении списка факультетов:", e)       
             return []
         
+
     def get_schedule_for_week(self, session: session, group: str, semester: int) -> list:
         """Получить список расписаний группы на неделю из базы данных."""
         try:
@@ -72,7 +75,8 @@ class ScheduleModel(Base):
         except Exception as e:
             print("Ошибка при получении списка расписания групп:", e)              
             return []
-        
+
+
     def get_study_time(self,session: session, faculty: str, semester: int) -> list:
         '''Получить все часы начала занятий'''
         try:
@@ -82,9 +86,10 @@ class ScheduleModel(Base):
             data = query.all()
             return [d[0] for d in data]                                       
         except Exception as e:
-            print("Ошибка при получении списка групп:", e)              
+            print("Ошибка при получении списка времени занятий:", e)              
             return []
         
+
     def get_all_groups_schedule_by_course(self, session: session, faculty: str, semester: int, course: int) -> list:
         try:
             query = session.query(ScheduleModel.DayOfWeek, ScheduleModel.TimeBeg, ScheduleModel.ClassRoom, ScheduleModel.DisciplineShort, ScheduleModel.TeacherShort, ScheduleModel.Kurs, ScheduleModel.OverUnderLine, ScheduleModel.SubGroup, ScheduleModel.WeekPeriod, ScheduleModel.SGroup, ScheduleModel.Semestr)\
