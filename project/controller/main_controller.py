@@ -333,8 +333,9 @@ class Controller:
         for k, v in dct.items():
             if k not in lst:
                 lst.append(k)
-                if v:
-                    lst.extend(sorted(v)) 
+                for group in v:
+                    if group not in lst:
+                        lst.extend(sorted(v)) 
         return lst
     
 
@@ -373,18 +374,40 @@ class Controller:
         return week_schedule_dict
 
 
-    # TODO: write this function correctly
     def merge_similar_lessons(self, ws, start_row, start_column, end_row, end_column):
         row = start_row
+        merged_cells = ws.merged_cells.ranges
+
         while row <= end_row:
             column = start_column
-            while column < end_column:
-                cell = ws.cell(row=row, column=column)
-                if self.is_merged(cell):
-                    ...
+            while column <= end_column:
+                cell1 = ws.cell(row=row, column=column).value
+                cell2 = ws.cell(row=row, column=column + 2).value if column + 2 <= end_column else None
+
+                if cell1 and cell1 == cell2:
+                    temp_column = column
+                    column += 2
+                    
+                    while column + 2 <= end_column and ws.cell(row=row, column=column + 2).value == cell1:
+                        column += 2
+                    
+                    found = False
+                    
+                    for merged_range in merged_cells:
+                        if (merged_range.min_row == row and merged_range.min_col == column):
+                            last_row = merged_range.max_row
+                            last_column = merged_range.max_col
+                            found = True
+                            break
+                    
+                    if found:
+                        for col in range(temp_column, last_column+1, 2):
+                            ws.unmerge_cells(start_row=row, start_column=col, end_row=last_row, end_column=col+1)
+                        ws.merge_cells(start_row=row, start_column=temp_column, end_row=last_row, end_column=last_column)
 
                 column += 2
             row += 1
+
                 
 
     @staticmethod
