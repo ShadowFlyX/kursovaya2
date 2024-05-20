@@ -16,6 +16,7 @@ from sqlalchemy.orm import sessionmaker
 from models.schedule_model import ScheduleModel
 import openpyxl
 from openpyxl.styles import (Border, Side, Alignment, Font)
+from controller.process_connection import *
 
 
 def run_application():
@@ -25,14 +26,11 @@ def run_application():
     sys.exit(app.exec())
 
 
+conntection_string = create_connection_string(read_settings("project/settings.txt"))
 
-SERVER = 'DESKTOP-HU5SQ7D\SQLEXPRESS'
-DATABASE = 'TimeTable'
+engine = db.create_engine(conntection_string)                          
 
-conntection_string = f"mssql+pyodbc://{SERVER}/{DATABASE}?trusted_connection=yes&trustservercertificate=yes&driver=ODBC+Driver+18+for+SQL+Server"
-engine = db.create_engine(conntection_string)                          # Создание ядра подключения для дальнейшей работы с ним  
-
-dirname = os.path.dirname(PySide6.__file__)                            # TODO: дописать коментарий здесь с описанием происходящего
+dirname = os.path.dirname(PySide6.__file__)                            
 
 plugin_path = os.path.join(dirname, "plugins", "platforms")
 os.environ['QT_QPA_PLATFORM_PLUGIN_PATH'] = plugin_path
@@ -42,7 +40,6 @@ Session = sessionmaker(bind=engine)
 
 class Controller:
     COUNT_STUDY_DAYS = 6
-
 
     def __init__(self, view: Ui_MainWindow):
         self.view = view
@@ -76,13 +73,11 @@ class Controller:
 
     def generate_file(self):
         
-        #------------------------------------------------------------------------------------------------------------------
         faculty = self.view.comboBox.currentText() 
         
         if faculty is None:
             self.showError("Error", "Select faculty!")
             return
-        #------------------------------------------------------------------------------------------------------------------
         
         semester = int(self.view.comboBox1.currentText())
         self.study_time = self.model.get_study_time(self.session, faculty, semester)
@@ -91,16 +86,11 @@ class Controller:
         for course, groups in faculty_dict.items():
             groups[:] = self.sort_groups(groups, self.model.get_all_groups_schedule_by_course(self.session, faculty, semester, course))
 
-        faculty_groups = [group for course_groups in faculty_dict.values() for group in course_groups]
-        
-        #------------------------------------------------------------------------------------------------------------------
+        faculty_groups = [group for course_groups in faculty_dict.values() for group in course_groups] 
         
         wb = openpyxl.Workbook()
         ws = wb.active
-        
-        
-        #------------------------------------------------------------------------------------------------------------------
-        
+           
         ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=len(faculty_groups) * 2 + 4)
         self.format_data_and_set_value(ws, 1, 1, faculty, self.default_cell_aligment, self.default_header_font, self.default_border)
         
@@ -144,8 +134,7 @@ class Controller:
             row = 4
             for day in week_schedule_dict:
                 for time, data in week_schedule_dict[day].items():  
-                    if data:   
-                        # Если есть подгруппа     
+                    if data:    
                         length = len(data)
                         if data[0].overunderline is not None:
                             if data[0].overunderline.lower() == "над чертой":
@@ -407,14 +396,7 @@ class Controller:
 
                 column += 2
             row += 1
-
-                
-
-    @staticmethod
-    def is_merged(cell):
-        return isinstance(cell, openpyxl.cell.MergedCell)
-            
-        
+     
 
 
 class MainWindow(QMainWindow):
