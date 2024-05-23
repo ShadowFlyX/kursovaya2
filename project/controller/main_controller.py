@@ -41,8 +41,6 @@ def show_error(title="Error", message="An error has occurred!"):
     """)
     msg_box.exec()
 
-
-
 def show_message(title="Message", message="This is a message!"):
     msg_box = QMessageBox()
     msg_box.setWindowTitle(title)
@@ -329,7 +327,7 @@ class Controller:
         self.write_study_time(ws, column, column+1, week_days, count_lessons)
         ws.merge_cells(start_row=2, start_column=column, end_row=3, end_column=column+1)
         self.format_cell_and_set_value(ws, 2, column, "", border=self.default_border)
-        wb.save("additional/test.xlsx")
+        wb.save("schedule.xlsx")
         show_message("Success!", "File created")
 
 

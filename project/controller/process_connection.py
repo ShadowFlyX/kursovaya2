@@ -36,7 +36,7 @@ def create_connection_string(settings):
     return connection_string
 
 if __name__ == "__main__":
-    settings_file = 'project/settings.txt'
+    settings_file = 'settings.txt'
     settings = read_settings(settings_file)
     connection_string = create_connection_string(settings)
     print(connection_string)

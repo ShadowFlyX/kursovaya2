@@ -3,3 +3,8 @@ additional
 .gitignore
 .vscode
 settings.txt
+build
+dist
+main.spec
+schedule.exe
+schedule.xlsx
