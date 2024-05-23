@@ -9,6 +9,7 @@ Schedule = namedtuple('Schedule', [
                 'dayofweek', 'timebeg', 'classroom', 'discipline', 'teacher', 'kurs', 'overunderline', 'subgroup', 'weekperiod', 'sgroup', 'semestr'
                 ])
 
+
 class ScheduleModel(Base):
     __tablename__ = 'TimeTable'
 
@@ -54,14 +55,10 @@ class ScheduleModel(Base):
 
     def get_faculties(self, session: session) -> list[tuple[str]]:
         """Получить список всех факультетов из базы данных."""
-        try:
-            query = session.query(distinct(ScheduleModel.Faculty))\
-            .order_by(ScheduleModel.Faculty)                           
-            faculties = query.all()
-            return [faculty[0] for faculty in faculties]              
-        except Exception as e:
-            print("Ошибка при получении списка факультетов:", e)       
-            return []
+        query = session.query(distinct(ScheduleModel.Faculty))\
+        .order_by(ScheduleModel.Faculty)                           
+        faculties = query.all()
+        return [faculty[0] for faculty in faculties]              
         
 
     def get_schedule_for_week(self, session: session, group: str, semester: int) -> list:

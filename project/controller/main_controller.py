@@ -5,11 +5,7 @@ import PySide6.QtCore
 import PySide6.QtWidgets
 import openpyxl.cell
 
-project_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../"))   # Получаем путь к каталогу проекта
-
-sys.path.append(project_dir)                                            # Добавляем каталог проекта в PYTHONPATH
-import PySide6
-from PySide6.QtWidgets import QApplication, QMainWindow
+from PySide6.QtWidgets import QApplication, QMainWindow, QMessageBox
 from view.main_view import Ui_MainWindow
 import sqlalchemy as db
 from sqlalchemy.orm import sessionmaker
@@ -18,32 +14,94 @@ import openpyxl
 from openpyxl.styles import (Border, Side, Alignment, Font)
 from controller.process_connection import *
 
+def show_error(title="Error", message="An error has occurred!"):
+    msg_box = QMessageBox()
+    msg_box.setWindowTitle(title)
+    msg_box.setText(message)
+    msg_box.setIcon(QMessageBox.Critical)
+    msg_box.setStandardButtons(QMessageBox.Ok)
+    msg_box.setDefaultButton(QMessageBox.Ok)
+
+    # Дополнительное стилизованное оформление
+    msg_box.setStyleSheet("""
+        QMessageBox {
+            background-color: #f8d7da;
+            color: #721c24;
+            font-size: 14px;
+        }
+        QPushButton {
+            background-color: #f5c6cb;
+            border: none;
+            padding: 5px;
+            font-size: 12px;
+        }
+        QPushButton:hover {
+            background-color: #f1b0b7;
+        }
+    """)
+    msg_box.exec()
+
+
+
+def show_message(title="Message", message="This is a message!"):
+    msg_box = QMessageBox()
+    msg_box.setWindowTitle(title)
+    msg_box.setText(message)
+    msg_box.setIcon(QMessageBox.Information)
+    msg_box.setStandardButtons(QMessageBox.Ok)
+    msg_box.setDefaultButton(QMessageBox.Ok)
+
+    # Дополнительное стилизованное оформление
+    msg_box.setStyleSheet("""
+        QMessageBox {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            font-size: 14px;
+        }
+        QPushButton {
+            background-color: #bee5eb;
+            border: none;
+            padding: 5px;
+            font-size: 12px;
+        }
+        QPushButton:hover {
+            background-color: #abdde5;
+        }
+    """)
+    msg_box.exec()
 
 def run_application():
-    app = QApplication(sys.argv)
-    window = MainWindow()
-    window.show()
-    sys.exit(app.exec())
+    try:
+        app = QApplication(sys.argv)
+        window = MainWindow()
+        window.show()
+        sys.exit(app.exec())
+    except Exception as exc:
+        show_error("An error has occured!", str(exc))
+        sys.exit(1)
 
-
-conntection_string = create_connection_string(read_settings("project/settings.txt"))
-
-engine = db.create_engine(conntection_string)                          
 
 dirname = os.path.dirname(PySide6.__file__)                            
 
 plugin_path = os.path.join(dirname, "plugins", "platforms")
 os.environ['QT_QPA_PLATFORM_PLUGIN_PATH'] = plugin_path
 
+def create_connection(conn_str: str):
+    engine = db.create_engine(conn_str)                          
+    return sessionmaker(bind=engine)
 
-Session = sessionmaker(bind=engine)                                   
+def create_session(conn_str):
+    Session = create_connection(conn_str)
+    return Session()
+
+connection_string = create_connection_string(read_settings("project/settings.txt"))
 
 class Controller:
     COUNT_STUDY_DAYS = 6
 
     def __init__(self, view: Ui_MainWindow):
         self.view = view
-        self.session = Session()
+        self.session = create_session(connection_string)
         self.model = ScheduleModel()
         self.view.pushButton.clicked.connect(self.generate_file)
         self.view.comboBox.addItems(self.get_faculty_data())
@@ -61,13 +119,6 @@ class Controller:
         return self.model.get_faculties(self.session)
 
     @staticmethod
-    def showError(title="Error", message="Message!"):
-        error = PySide6.QtWidgets.QErrorMessage()
-        error.showMessage(message)
-        error.setWindowTitle(title)
-        error.exec()
-
-    @staticmethod
     def get_lesson_string(data):
         return f"{data.discipline}\n{data.teacher}\n{data.classroom}"
 
@@ -75,8 +126,8 @@ class Controller:
         
         faculty = self.view.comboBox.currentText() 
         
-        if faculty is None:
-            self.showError("Error", "Select faculty!")
+        if not faculty:
+            show_error("Error", "Select faculty!")
             return
         
         semester = int(self.view.comboBox1.currentText())
@@ -104,7 +155,7 @@ class Controller:
         #------------------------------------------------------------------------------------------------------------------
           
         if not self.study_time:
-            self.showError("Error", "No data for this faculty and semester")
+            show_error("Error", "No data for this faculty and semester")
             return
         
         week_days = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"]
@@ -279,6 +330,7 @@ class Controller:
         ws.merge_cells(start_row=2, start_column=column, end_row=3, end_column=column+1)
         self.format_cell_and_set_value(ws, 2, column, "", border=self.default_border)
         wb.save("additional/test.xlsx")
+        show_message("Success!", "File created")
 
 
     def format_cell_and_set_value(self, ws, row, column, data, alignment=None, font=None, border=None):
