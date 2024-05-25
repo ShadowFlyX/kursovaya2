@@ -1,3 +1,18 @@
+import pyodbc
+
+def get_available_drivers():
+    drivers = pyodbc.drivers()
+
+    return list(filter(lambda x: x.startswith("ODBC"), drivers))
+
+def get_latest_sql_server_driver():
+    drivers = get_available_drivers()
+    sql_server_drivers = [driver for driver in drivers if 'SQL Server' in driver]
+    if sql_server_drivers:
+        return sorted(sql_server_drivers, reverse=True)[0]
+    else:
+        raise Exception("No SQL Server ODBC driver found.")
+
 def read_settings(file_path: str) -> dict:
 
     settings = {}
@@ -13,9 +28,7 @@ def create_connection_string(settings):
     
     server = settings.get('SERVER')
     database = settings.get('DATABASE')
-    driver = settings.get('DRIVER', 'ODBC+Driver+18+for+SQL+Server')
-    
-    # Определяем параметры для подключения
+    driver = settings.get('DRIVER', get_latest_sql_server_driver())
     username = settings.get('USERNAME')
     password = settings.get('PASSWORD')
     trusted_connection = settings.get('TRUSTED_CONNECTION', 'YES')
@@ -36,7 +49,7 @@ def create_connection_string(settings):
     return connection_string
 
 if __name__ == "__main__":
-    settings_file = 'settings.txt'
+    settings_file = 'project/settings.txt'
     settings = read_settings(settings_file)
     connection_string = create_connection_string(settings)
     print(connection_string)
